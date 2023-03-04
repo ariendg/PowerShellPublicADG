@@ -4,7 +4,7 @@ This script is to correct Tags from Source CMDB for your Azure Resources on Subs
 Run on demand. when team thinks tags are out of sync too much.
 
 .DESCRIPTION
-Sometimes it is needed to Activate resource ole 'Azure Connected Machine Resource Administrator' in front/before running this script!
+Sometimes it is needed to Activate resource role 'Azure Connected Machine Resource Administrator' in front/before running this script!
 The Resource group wil be displayed in output for details about what Role might be missing.
 
 .NOTES
