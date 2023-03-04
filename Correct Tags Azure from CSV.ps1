@@ -80,7 +80,7 @@ Get-AzSubscription | ForEach-Object {
 #$resources | Out-GridView
 
 #We have a simple CSV to work with that has only 2 Values: Name and TagValue
-$MyTagNameList = Import-Csv ($MyCSVLocation+$MyTagName+".csv") -Delimiter ";"
+$MyTagNameList = Import-Csv ($MyCSVLocation+$MyTagName+".csv") -Delimiter ;
 $i = 0; $r = 0;
 
 foreach ($currentItem in $MyTagNameList) {
@@ -113,4 +113,4 @@ foreach ($currentItem in $MyTagNameList) {
     }
     #>
 }
-if ($i -eq 0) { Write-Host "There were no wrong Azure Tags set in $r found resource matches from CSV. All other automation or corrections worked"}
+if ($i -eq 0) { Write-Host "There were no wrong Azure Tags set in $r found resource matches from CSV. All other automation or corrections worked" }
