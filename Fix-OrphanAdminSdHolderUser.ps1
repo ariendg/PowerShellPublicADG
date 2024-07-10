@@ -47,6 +47,11 @@ Function Get-OrphanAdminSdHolderUser {
     )
     Begin {}
     Process {
+        # get default ACL
+        $SchemaNamingContext = (Get-ADRootDSE).schemaNamingContext
+        $GrpDfltSecurityDescriptor = Get-ADObject -Identity "CN=Group,$SchemaNamingContext" -Properties defaultSecurityDescriptor | Select-Object -ExpandProperty defaultSecurityDescriptor
+        $UsrDfltSecurityDescriptor = Get-ADObject -Identity "CN=User,$SchemaNamingContext"  -Properties defaultSecurityDescriptor | Select-Object -ExpandProperty defaultSecurityDescriptor
+
         $OrphanUser |
         Where-Object { $_.SamAccountName -ne 'krbtgt' } |
         ForEach-Object {
@@ -54,7 +59,7 @@ Function Get-OrphanAdminSdHolderUser {
             if ($pscmdlet.ShouldProcess($_,'Clear AdminCount and reset permissions inheritance')) {
                 try {
                     $user | Set-ADUser -Clear {AdminCount} -ErrorAction Stop
-                    Write-Verbose -Message ('Clearing AdminCount for {0}' -f $user.SamAccountName)
+                    Write-Verbose -Verbose -Message ('Clearing AdminCount for {0}' -f $user.SamAccountName)
                 } catch {
                     Write-Warning -Message "Failed to clear admincount property for $($user.SamAccountName) because $($_.Exception.Message)"
                 }
@@ -64,12 +69,39 @@ Function Get-OrphanAdminSdHolderUser {
                     If ($Acl.AreAccessRulesProtected) {
                         $Acl.SetAccessRuleProtection($False, $True)
                         Set-ACL -AclObject $ACL -Path ('AD:\{0}' -f $user.DistinguishedName) -ErrorAction Stop
-                        Write-Verbose -Message ('Enabling Inheritence for {0}' -f $user.SamAccountName)
+                        Write-Verbose -Verbose -Message ('Enabling Inheritence for {0}' -f $user.SamAccountName)
                     } else {
-                        Write-Verbose -Message ('Inheritence already set for {0}' -f $user.SamAccountName)
+                        Write-Verbose -Verbose -Message ('Inheritence already set for {0}' -f $user.SamAccountName)
                     }
                 } catch {
                     Write-Warning -Message "Failed to enable inheritence for $($user.SamAccountName) because $($_.Exception.Message)"
+                }
+                
+                # Reset ACL
+                Write-Host $($user.SamAccountName) -NoNewline
+                Write-Host "`tResetting SDDL to schema default " -NoNewline
+                    
+                switch ($_.ObjectClass) {
+                    'user' { $ADObj = Get-ADUser -Identity $user.SamAccountName -Properties nTSecurityDescriptor -ErrorVariable GetADObjError }
+                    'group' { $ADObj = Get-ADGroup -Identity $user.SamAccountName -Properties nTSecurityDescriptor -ErrorVariable GetADObjError }
+                }
+                
+                if ($GetADobjError) { 
+                    Write-Host "`tFailed!" -ForegroundColor Red 
+                }
+                else {
+                    try {
+                        switch ($_.ObjectClass) {
+                            'user' { $ADObj.nTSecurityDescriptor.SetSecurityDescriptorSddlForm( $UsrDfltSecurityDescriptor ) }
+                            'group' { $ADObj.nTSecurityDescriptor.SetSecurityDescriptorSddlForm( $GrpDfltSecurityDescriptor ) }
+                        }
+                            
+                        Set-ADObject -Identity $ADObj.DistinguishedName -Replace @{ nTSecurityDescriptor = $ADObj.nTSecurityDescriptor } -Confirm:$false
+                        Write-Host "`tSuccess" -ForegroundColor Green
+                    } 
+                    catch {
+                        Write-Host "`tFailed" -ForegroundColor red
+                    }
                 }
             }
         }
